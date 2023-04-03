@@ -79,15 +79,8 @@ public class FilePath extends CordovaPlugin {
             }
 
             return true;
-        }else if (action.equals("resolveNativePath2")) {
-            if (PermissionHelper.hasPermission(this, READ)) {
-                resolveNativePath2();
-            } else {
-                getReadPermission(READ_REQ_CODE);
-            }
-
-            return true;
-        }else {
+        }
+        else {
             JSONObject resultObj = new JSONObject();
 
             resultObj.put("code", INVALID_ACTION_ERROR_CODE);
@@ -99,89 +92,48 @@ public class FilePath extends CordovaPlugin {
         return false;
     }
 
-    
-  public void resolveNativePath2() throws JSONException {
-    JSONObject resultObj = new JSONObject();
-    /* content:///... */
-    Uri pvUrl = Uri.parse(this.uriStr);
+    public void resolveNativePath() throws JSONException {
+      JSONObject resultObj = new JSONObject();
+      /* content:///... */
+      Uri pvUrl = Uri.parse(this.uriStr);
 
-    Log.d(TAG, "URI: " + this.uriStr);
+      Log.d(TAG, "URI: " + this.uriStr);
 
-    Context appContext = this.cordova.getActivity().getApplicationContext();
-    String filePath = getPath(appContext, pvUrl);
+      Context appContext = this.cordova.getActivity().getApplicationContext();
+      String filePath = getPath(appContext, pvUrl);
 
-    final boolean isAndroidQ = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+      final boolean isAndroidQ = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
 
-    if (isAndroidQ) {
-      filePath = getDriveFilePath(pvUrl, appContext);
-    } else {
-      filePath = getPath(appContext, pvUrl);
-    }
+      if (isAndroidQ) {
+        try{
+          filePath = getDriveFilePath(pvUrl, appContext);
+        }catch (Exception e){
+          Log.d(TAG, "getDriveFilePath e: " + e.toString());
+          filePath = getPath(appContext, pvUrl);
+        }
+      } else {
+        filePath = getPath(appContext, pvUrl);
+      }
 
-    //check result; send error/success callback
-    if (filePath == GET_PATH_ERROR_ID) {
-      resultObj.put("code", GET_PATH_ERROR_CODE);
-      resultObj.put("message", "Unable to resolve filesystem path.");
-
-      this.callback.error(resultObj);
-    }
-    else if (filePath.equals(GET_CLOUD_PATH_ERROR_ID)) {
-      resultObj.put("code", GET_CLOUD_PATH_ERROR_CODE);
-      resultObj.put("message", "Files from cloud cannot be resolved to filesystem, download is required.");
-
-      this.callback.error(resultObj);
-    }
-    else {
-      Log.d(TAG, "Filepath: " + filePath);
-
-      this.callback.success("file://" + filePath);
-    }
-  }
-  public void resolveNativePath() throws JSONException {
-    JSONObject resultObj = new JSONObject();
-    /* content:///... */
-    Uri pvUrl = Uri.parse(this.uriStr);
-
-    Log.d(TAG, "URI: " + this.uriStr);
-
-    Context appContext = this.cordova.getActivity().getApplicationContext();
-    String filePath = getPath(appContext, pvUrl);
-
-    //check result; send error/success callback
-    if (filePath == GET_PATH_ERROR_ID) {
-      resultObj.put("code", GET_PATH_ERROR_CODE);
-      resultObj.put("message", "Unable to resolve filesystem path.");
-
-      this.callback.error(resultObj);
-    } else if (filePath.equals(GET_CLOUD_PATH_ERROR_ID)) {
-      resultObj.put("code", GET_CLOUD_PATH_ERROR_CODE);
-      resultObj.put("message", "Files from cloud cannot be resolved to filesystem, download is required.");
-
-      this.callback.error(resultObj);
-    } else {
-      Log.d(TAG, "Filepath: " + filePath);
-
-      this.callback.success("file://" + filePath);
-    }
-  }
-
-
-  public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
-    for (int r : grantResults) {
-      if (r == PackageManager.PERMISSION_DENIED) {
-        JSONObject resultObj = new JSONObject();
-        resultObj.put("code", 3);
-        resultObj.put("message", "Filesystem permission was denied.");
+      //check result; send error/success callback
+      if (filePath == GET_PATH_ERROR_ID) {
+        resultObj.put("code", GET_PATH_ERROR_CODE);
+        resultObj.put("message", "Unable to resolve filesystem path.");
 
         this.callback.error(resultObj);
-        return;
+      }
+      else if (filePath.equals(GET_CLOUD_PATH_ERROR_ID)) {
+        resultObj.put("code", GET_CLOUD_PATH_ERROR_CODE);
+        resultObj.put("message", "Files from cloud cannot be resolved to filesystem, download is required.");
+
+        this.callback.error(resultObj);
+      }
+      else {
+        Log.d(TAG, "Filepath: " + filePath);
+
+        this.callback.success("file://" + filePath);
       }
     }
-
-    if (requestCode == READ_REQ_CODE) {
-      resolveNativePath();
-    }
-  }
 
 
     public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
@@ -363,20 +315,6 @@ public class FilePath extends CordovaPlugin {
     }
 
     /**
-     * sometimes in raw type, the second part is a valid filepath
-     *
-     * @param rawPath The raw path
-     */
-    private static String getRawFilepath(String rawPath) {
-        final String[] split = rawPath.split(":");
-        if (fileExists(split[1])) {
-            return split[1];
-        }
-
-        return "";
-    }
-
-    /**
      * Get a file path from a Uri. This will get the the path for Storage Access
      * Framework Documents, as well as the _data field for the MediaStore and
      * other file-based ContentProviders.<br>
@@ -436,13 +374,6 @@ public class FilePath extends CordovaPlugin {
                 }
                 //
                 final String id = DocumentsContract.getDocumentId(uri);
-
-                // sometimes in raw type, the second part is a valid filepath
-                final String rawFilepath = getRawFilepath(id);
-                if (rawFilepath != "") {
-                    return rawFilepath;
-                }
-
                 String[] contentUriPrefixesToTry = new String[]{
                         "content://downloads/public_downloads",
                         "content://downloads/my_downloads"
